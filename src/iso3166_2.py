@@ -7,7 +7,10 @@ use phf::phf_map;
 use phf::Map;
 
 #[cfg(feature = "with-serde")]
-use serde::{Deserialize, Serialize};
+use serde::{Serialize,ser::{Serializer,SerializeStruct},de::{self, Deserialize, Deserializer, Visitor, SeqAccess, MapAccess}};
+
+#[cfg(feature = "with-serde")]
+use std::fmt;
 
 #[cfg(feature = "with-schemars")]
 use schemars::JsonSchema;
@@ -24,7 +27,6 @@ use schemars::JsonSchema;
 /// ```
 ///
 /// Data for each Country Code defined by ISO 3166-2
-#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "with-schemars", derive(JsonSchema))]
 #[cfg_attr(feature = "with-eq", derive(PartialEq,Eq))] //@TODO more efficient implementation possible
 #[derive(Debug, Copy, Clone)]
@@ -52,6 +54,100 @@ pub struct Subdivision {
 pub fn from_code(code: &str) -> Option<Subdivision> {
     SUBDIVISION_MAP.get(code).cloned()
 }
+
+#[cfg(feature = "with-serde")]
+impl Serialize for Subdivision {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Subdivision", 1)?;
+        state.serialize_field("region_code", &self.region_code)?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "with-serde")]
+impl<'de> Deserialize<'de> for Subdivision {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        enum Field { RegionCode }
+        
+        impl<'de> Deserialize<'de> for Field {
+            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
+                where
+                    D: Deserializer<'de>,
+            {
+                struct FieldVisitor;
+
+                impl<'de> Visitor<'de> for FieldVisitor {
+                    type Value = Field;
+
+                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                        formatter.write_str("`region_code`")
+                    }
+
+                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
+                        where
+                            E: de::Error,
+                    {
+                        match value {
+                            "region_code" => Ok(Field::RegionCode),
+                            _ => Err(de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+
+                deserializer.deserialize_identifier(FieldVisitor)
+            }
+        }
+
+        struct SubdivisionVisitor;
+
+        impl<'de> Visitor<'de> for SubdivisionVisitor {
+            type Value = Subdivision;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct Subdivision")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Subdivision, V::Error>
+                where
+                    V: SeqAccess<'de>,
+            {
+                let region_code = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                Ok(from_code(region_code).expect(format!("deserialized Subdivision region_code({}) not found",region_code).as_str()))
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Subdivision, V::Error>
+                where
+                    V: MapAccess<'de>,
+            {
+                let mut region_code = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::RegionCode => {
+                            if region_code.is_some() {
+                                return Err(de::Error::duplicate_field("region_code"));
+                            }
+                            region_code = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let region_code = region_code.ok_or_else(|| de::Error::missing_field("region_code"))?;
+                Ok(from_code(region_code).expect(format!("deserialized Subdivision region_code({}) not found",region_code).as_str()))
+            }
+        }
+
+
+        const FIELDS: &'static [&'static str] = &["region_code"];
+        deserializer.deserialize_struct("Subdivision", FIELDS, SubdivisionVisitor)
+    }
+}
+
 """
 print pre_code
 f =  csv.reader(open('iso3166_2.data', 'rb'), delimiter=',', quotechar='"')

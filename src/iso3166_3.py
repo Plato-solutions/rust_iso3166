@@ -7,15 +7,7 @@ use phf::phf_map;
 use phf::Map;
 use crate::CountryCode;
 
-#[cfg(feature = "with-serde")]
-use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "with-schemars")]
-use schemars::JsonSchema;
-
 /// Data for each Country Code defined by ISO 3166-1
-#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "with-schemars", derive(JsonSchema))]
 #[derive(Debug,Copy, Clone)]
 pub struct CountryCode3 {
     ///ISO 3166-3 code

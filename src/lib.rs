@@ -58,6 +58,58 @@ pub struct CountryCode {
     pub numeric: i32,
 }
 
+impl CountryCode {
+    ///Return len 3 String for CountryCode numeric
+    pub fn numeric_str(&self) -> String {
+        format!("{:03}", self.numeric)
+    }
+
+    ///Return Subdivision for ISO 3166-2
+    pub fn subdivisions(&self) -> Option<&[iso3166_2::Subdivision]> {
+        iso3166_2::SUBDIVISION_COUNTRY_MAP.get(self.alpha2).cloned()
+    }
+}
+/// Returns the CountryCode with the given Alpha2 code, if exists.
+/// #Sample
+/// ```
+/// let country = rust_iso3166::from_alpha2("AU");
+/// assert_eq!("AUS", country.unwrap().alpha3);
+/// ```
+pub fn from_alpha2(alpha2: &str) -> Option<CountryCode> {
+    ALPHA2_MAP.get(alpha2).cloned()
+}
+
+/// Returns the CountryCode with the given Alpha3 code, if exists.
+/// #Sample
+/// ```
+/// let country = rust_iso3166::from_alpha3("AUS");
+/// assert_eq!(036, country.unwrap().numeric);
+/// ```
+pub fn from_alpha3(alpha3: &str) -> Option<CountryCode> {
+    ALPHA3_MAP.get(alpha3).cloned()
+}
+
+/// Returns the CountryCode with the given numeric , if exists.
+// #Sample
+/// ```
+/// let country = rust_iso3166::from_numeric(036);
+/// assert_eq!("AUS", country.unwrap().alpha3);
+/// ```
+pub fn from_numeric(numeric: i32) -> Option<CountryCode> {
+    let k = format!("{:03}", numeric);
+    NUMERIC_MAP.get(&k).cloned()
+}
+
+/// Returns the CountryCode with the given numeric 3 length str, if exists.
+// #Sample
+/// ```
+/// let country = rust_iso3166::from_numeric_str("036");
+/// assert_eq!("AUS", country.unwrap().alpha3);
+/// ```
+pub fn from_numeric_str(numeric: &str) -> Option<CountryCode> {
+    NUMERIC_MAP.get(numeric).cloned()
+}
+
 
 #[cfg(feature = "with-serde")]
 impl<'de> Deserialize<'de> for CountryCode {
@@ -114,7 +166,6 @@ impl<'de> Deserialize<'de> for CountryCode {
                 where
                     V: SeqAccess<'de>,
             {
-                use serde::ser::Error;
                 let numeric = seq.next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                 Ok(from_numeric(numeric).expect(format!("deserialized CountryCode numeric({}) not found",numeric).as_str()))
@@ -144,59 +195,6 @@ impl<'de> Deserialize<'de> for CountryCode {
         const FIELDS: &'static [&'static str] = &["numeric"];
         deserializer.deserialize_struct("CountryCode", FIELDS, CountryCodeVisitor)
     }
-}
-
-
-impl CountryCode {
-    ///Return len 3 String for CountryCode numeric
-    pub fn numeric_str(&self) -> String {
-        format!("{:03}", self.numeric)
-    }
-
-    ///Return Subdivision for ISO 3166-2
-    pub fn subdivisions(&self) -> Option<&[iso3166_2::Subdivision]> {
-        iso3166_2::SUBDIVISION_COUNTRY_MAP.get(self.alpha2).cloned()
-    }
-}
-/// Returns the CountryCode with the given Alpha2 code, if exists.
-/// #Sample
-/// ```
-/// let country = rust_iso3166::from_alpha2("AU");
-/// assert_eq!("AUS", country.unwrap().alpha3);
-/// ```
-pub fn from_alpha2(alpha2: &str) -> Option<CountryCode> {
-    ALPHA2_MAP.get(alpha2).cloned()
-}
-
-/// Returns the CountryCode with the given Alpha3 code, if exists.
-/// #Sample
-/// ```
-/// let country = rust_iso3166::from_alpha3("AUS");
-/// assert_eq!(036, country.unwrap().numeric);
-/// ```
-pub fn from_alpha3(alpha3: &str) -> Option<CountryCode> {
-    ALPHA3_MAP.get(alpha3).cloned()
-}
-
-/// Returns the CountryCode with the given numeric , if exists.
-// #Sample
-/// ```
-/// let country = rust_iso3166::from_numeric(036);
-/// assert_eq!("AUS", country.unwrap().alpha3);
-/// ```
-pub fn from_numeric(numeric: i32) -> Option<CountryCode> {
-    let k = format!("{:03}", numeric);
-    NUMERIC_MAP.get(&k).cloned()
-}
-
-/// Returns the CountryCode with the given numeric 3 length str, if exists.
-// #Sample
-/// ```
-/// let country = rust_iso3166::from_numeric_str("036");
-/// assert_eq!("AUS", country.unwrap().alpha3);
-/// ```
-pub fn from_numeric_str(numeric: &str) -> Option<CountryCode> {
-    NUMERIC_MAP.get(numeric).cloned()
 }
 
 pub const AF: CountryCode = CountryCode {

@@ -39,16 +39,19 @@ use schemars::JsonSchema;
 /// ```
 
 /// Data for each Country Code defined by ISO 3166-1
-#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "with-serde", derive(Serialize))]
 #[cfg_attr(feature = "with-schemars", derive(JsonSchema))]
 #[cfg_attr(feature = "with-eq", derive(PartialEq,Eq))] //@TODO more efficient implementation possible
 #[derive(Debug, Copy, Clone)]
 pub struct CountryCode {
     ///English short name
+    #[serde(skip_serializing)]
     pub name: &'static str,
     ///Alpha-2 code
+    #[serde(skip_serializing)]
     pub alpha2: &'static str,
     ///Alpha-3 code
+    #[serde(skip_serializing)]
     pub alpha3: &'static str,
     ///Numeric code
     pub numeric: i32,
@@ -65,6 +68,7 @@ impl CountryCode {
         iso3166_2::SUBDIVISION_COUNTRY_MAP.get(self.alpha2).cloned()
     }
 }
+
 /// Returns the CountryCode with the given Alpha2 code, if exists.
 /// #Sample
 /// ```
@@ -104,6 +108,92 @@ pub fn from_numeric(numeric: i32) -> Option<CountryCode> {
 /// ```
 pub fn from_numeric_str(numeric: &str) -> Option<CountryCode> {
     NUMERIC_MAP.get(numeric).cloned()
+}
+
+#[cfg(feature = "with-serde")]
+impl<'de> Deserialize<'de> for CountryCode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        enum Field { Numeric }
+
+        // This part could also be generated independently by:
+        //
+        //    #[derive(Deserialize)]
+        //    #[serde(field_identifier, rename_all = "lowercase")]
+        //    enum Field { Secs, Nanos }
+        impl<'de> Deserialize<'de> for Field {
+            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
+                where
+                    D: Deserializer<'de>,
+            {
+                struct FieldVisitor;
+
+                impl<'de> Visitor<'de> for FieldVisitor {
+                    type Value = Field;
+
+                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                        formatter.write_str("`numeric`")
+                    }
+
+                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
+                        where
+                            E: de::Error,
+                    {
+                        match value {
+                            "numeric" => Ok(Field::Numeric),
+                            _ => Err(de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+
+                deserializer.deserialize_identifier(FieldVisitor)
+            }
+        }
+
+        struct CountryCodeVisitor;
+
+        impl<'de> Visitor<'de> for CountryCodeVisitor {
+            type Value = CountryCode;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct CountryCode")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<CountryCode, V::Error>
+                where
+                    V: SeqAccess<'de>,
+            {
+                let numeric = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                Ok(from_numeric(numeric).expect(format!("deserialized CountryCode numeric({}) not found",numeric).as_str()))
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<CountryCode, V::Error>
+                where
+                    V: MapAccess<'de>,
+            {
+                let mut numeric = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Numeric => {
+                            if numeric.is_some() {
+                                return Err(de::Error::duplicate_field("numeric"));
+                            }
+                            numeric = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let numeric = numeric.ok_or_else(|| de::Error::missing_field("numeric"))?;
+                Ok(from_numeric(numeric).expect(format!("deserialized CountryCode numeric({}) not found",numeric).as_str()))
+            }
+        }
+
+
+        const FIELDS: &'static [&'static str] = &["numeric"];
+        deserializer.deserialize_struct("CountryCode", FIELDS, CountryCodeVisitor)
+    }
 }
 """
 

@@ -54,7 +54,6 @@ impl Serialize for Subdivision {
         where
             S: Serializer,
     {
-        // 3 is the number of fields in the struct.
         let mut state = serializer.serialize_struct("Subdivision", 1)?;
         state.serialize_field("region_code", &self.region_code)?;
         state.end()
@@ -69,11 +68,6 @@ impl<'de> Deserialize<'de> for Subdivision {
     {
         enum Field { RegionCode }
 
-        // This part could also be generated independently by:
-        //
-        //    #[derive(Deserialize)]
-        //    #[serde(field_identifier, rename_all = "lowercase")]
-        //    enum Field { Secs, Nanos }
         impl<'de> Deserialize<'de> for Field {
             fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
                 where
@@ -116,7 +110,6 @@ impl<'de> Deserialize<'de> for Subdivision {
                 where
                     V: SeqAccess<'de>,
             {
-                use serde::ser::Error;
                 let region_code = seq.next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                 Ok(from_code(region_code).expect(format!("deserialized Subdivision region_code({}) not found",region_code).as_str()))
