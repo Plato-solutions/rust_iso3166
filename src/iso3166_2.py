@@ -6,6 +6,12 @@ pre_code = """
 use phf::phf_map;
 use phf::Map;
 
+#[cfg(feature = "with-serde")]
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "with-schemars")]
+use schemars::JsonSchema;
+
 /// # Sample code
 /// ```
 /// let country = rust_iso3166::from_alpha2("GB").unwrap();
@@ -18,6 +24,9 @@ use phf::Map;
 /// ```
 ///
 /// Data for each Country Code defined by ISO 3166-2
+#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "with-schemars", derive(JsonSchema))]
+#[cfg_attr(feature = "with-eq", derive(PartialEq,Eq))] //@TODO more efficient implementation possible
 #[derive(Debug, Copy, Clone)]
 pub struct Subdivision {
     ///name

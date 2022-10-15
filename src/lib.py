@@ -7,6 +7,12 @@ use phf::Map;
 pub mod iso3166_2;
 pub mod iso3166_3;
 
+#[cfg(feature = "with-serde")]
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "with-schemars")]
+use schemars::JsonSchema;
+
 /// # Sample code
 /// ```
 /// let country = rust_iso3166::from_alpha2("AU");
@@ -33,6 +39,9 @@ pub mod iso3166_3;
 /// ```
 
 /// Data for each Country Code defined by ISO 3166-1
+#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "with-schemars", derive(JsonSchema))]
+#[cfg_attr(feature = "with-eq", derive(PartialEq,Eq))] //@TODO more efficient implementation possible
 #[derive(Debug, Copy, Clone)]
 pub struct CountryCode {
     ///English short name
