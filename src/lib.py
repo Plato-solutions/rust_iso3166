@@ -8,7 +8,10 @@ pub mod iso3166_2;
 pub mod iso3166_3;
 
 #[cfg(feature = "with-serde")]
-use serde::{Deserialize, Serialize};
+use serde::{Serialize,de::{self, Deserialize, Deserializer, Visitor, SeqAccess, MapAccess}};
+
+#[cfg(feature = "with-serde")]
+use std::fmt;
 
 #[cfg(feature = "with-schemars")]
 use schemars::JsonSchema;
@@ -116,44 +119,13 @@ impl<'de> Deserialize<'de> for CountryCode {
         where
             D: Deserializer<'de>,
     {
-        enum Field { Numeric }
+        use serde::Deserialize;
 
-        // This part could also be generated independently by:
-        //
-        //    #[derive(Deserialize)]
-        //    #[serde(field_identifier, rename_all = "lowercase")]
-        //    enum Field { Secs, Nanos }
-        impl<'de> Deserialize<'de> for Field {
-            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
-                where
-                    D: Deserializer<'de>,
-            {
-                struct FieldVisitor;
-
-                impl<'de> Visitor<'de> for FieldVisitor {
-                    type Value = Field;
-
-                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                        formatter.write_str("`numeric`")
-                    }
-
-                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
-                        where
-                            E: de::Error,
-                    {
-                        match value {
-                            "numeric" => Ok(Field::Numeric),
-                            _ => Err(de::Error::unknown_field(value, FIELDS)),
-                        }
-                    }
-                }
-
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field { Name, Alpha2, Alpha3, Numeric }
 
         struct CountryCodeVisitor;
-
         impl<'de> Visitor<'de> for CountryCodeVisitor {
             type Value = CountryCode;
 
@@ -165,6 +137,12 @@ impl<'de> Deserialize<'de> for CountryCode {
                 where
                     V: SeqAccess<'de>,
             {
+                let _name = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let _alpha2 = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let _alpha3 = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                 let numeric = seq.next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                 Ok(from_numeric(numeric).expect(format!("deserialized CountryCode numeric({}) not found",numeric).as_str()))
@@ -174,9 +152,30 @@ impl<'de> Deserialize<'de> for CountryCode {
                 where
                     V: MapAccess<'de>,
             {
+                let mut name = None;
+                let mut alpha2 = None;
+                let mut alpha3 = None;
                 let mut numeric = None;
                 while let Some(key) = map.next_key()? {
                     match key {
+                        Field::Name => {
+                            if name.is_some() {
+                                return Err(de::Error::duplicate_field("name"));
+                            }
+                            name = Some(map.next_value()?);
+                        }
+                        Field::Alpha2 => {
+                            if alpha2.is_some() {
+                                return Err(de::Error::duplicate_field("alpha2"));
+                            }
+                            alpha2 = Some(map.next_value()?);
+                        }
+                        Field::Alpha3 => {
+                            if alpha3.is_some() {
+                                return Err(de::Error::duplicate_field("alpha3"));
+                            }
+                            alpha3 = Some(map.next_value()?);
+                        }
                         Field::Numeric => {
                             if numeric.is_some() {
                                 return Err(de::Error::duplicate_field("numeric"));

@@ -7,7 +7,7 @@ use phf::phf_map;
 use phf::Map;
 
 #[cfg(feature = "with-serde")]
-use serde::{Serialize,ser::{Serializer,SerializeStruct},de::{self, Deserialize, Deserializer, Visitor, SeqAccess, MapAccess}};
+use serde::{Serialize,de::{self, Deserialize, Deserializer, Visitor, SeqAccess, MapAccess}};
 
 #[cfg(feature = "with-serde")]
 use std::fmt;
@@ -56,56 +56,18 @@ pub fn from_code(code: &str) -> Option<Subdivision> {
 }
 
 #[cfg(feature = "with-serde")]
-impl Serialize for Subdivision {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("Subdivision", 1)?;
-        state.serialize_field("region_code", &self.region_code)?;
-        state.end()
-    }
-}
-
-#[cfg(feature = "with-serde")]
 impl<'de> Deserialize<'de> for Subdivision {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
             D: Deserializer<'de>,
     {
-        enum Field { RegionCode }
-        
-        impl<'de> Deserialize<'de> for Field {
-            fn deserialize<D>(deserializer: D) -> Result<Field, D::Error>
-                where
-                    D: Deserializer<'de>,
-            {
-                struct FieldVisitor;
+        use serde::Deserialize;
 
-                impl<'de> Visitor<'de> for FieldVisitor {
-                    type Value = Field;
-
-                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                        formatter.write_str("`region_code`")
-                    }
-
-                    fn visit_str<E>(self, value: &str) -> Result<Field, E>
-                        where
-                            E: de::Error,
-                    {
-                        match value {
-                            "region_code" => Ok(Field::RegionCode),
-                            _ => Err(de::Error::unknown_field(value, FIELDS)),
-                        }
-                    }
-                }
-
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field { Name, SubdivisionType, Code, CountryName, CountryCode, RegionCode }
 
         struct SubdivisionVisitor;
-
         impl<'de> Visitor<'de> for SubdivisionVisitor {
             type Value = Subdivision;
 
@@ -117,6 +79,16 @@ impl<'de> Deserialize<'de> for Subdivision {
                 where
                     V: SeqAccess<'de>,
             {
+                let _name = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let _subdivision_type = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let _code = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let _country_name = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let _country_code = seq.next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                 let region_code = seq.next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                 Ok(from_code(region_code).expect(format!("deserialized Subdivision region_code({}) not found",region_code).as_str()))
@@ -126,9 +98,45 @@ impl<'de> Deserialize<'de> for Subdivision {
                 where
                     V: MapAccess<'de>,
             {
+                let mut name = None;
+                let mut subdivision_type = None;
+                let mut code = None;
+                let mut country_name = None;
+                let mut country_code = None;
                 let mut region_code = None;
+
                 while let Some(key) = map.next_key()? {
                     match key {
+                        Field::Name => {
+                            if name.is_some() {
+                                return Err(de::Error::duplicate_field("name"));
+                            }
+                            name = Some(map.next_value()?);
+                        }
+                        Field::SubdivisionType => {
+                            if subdivision_type.is_some() {
+                                return Err(de::Error::duplicate_field("subdivision_type"));
+                            }
+                            subdivision_type = Some(map.next_value()?);
+                        }
+                        Field::Code => {
+                            if code.is_some() {
+                                return Err(de::Error::duplicate_field("code"));
+                            }
+                            code = Some(map.next_value()?);
+                        }
+                        Field::CountryName => {
+                            if country_name.is_some() {
+                                return Err(de::Error::duplicate_field("country_name"));
+                            }
+                            country_name = Some(map.next_value()?);
+                        }
+                        Field::CountryCode => {
+                            if country_code.is_some() {
+                                return Err(de::Error::duplicate_field("country_code"));
+                            }
+                            country_code = Some(map.next_value()?);
+                        }
                         Field::RegionCode => {
                             if region_code.is_some() {
                                 return Err(de::Error::duplicate_field("region_code"));
@@ -147,6 +155,7 @@ impl<'de> Deserialize<'de> for Subdivision {
         deserializer.deserialize_struct("Subdivision", FIELDS, SubdivisionVisitor)
     }
 }
+
 
 """
 print pre_code
